@@ -7,11 +7,9 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { ChevronUp, ChevronDown, Search, ArrowUpDown } from "lucide-react";
+import { Search, ArrowUpDown } from "lucide-react";
 
 interface Agency {
   name: string;
@@ -95,7 +93,6 @@ export default function AgencyTable() {
     setCurrentPage(1);
   }, [sort, search, agencies, sortDirection]);
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginatedAgencies = filtered.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
