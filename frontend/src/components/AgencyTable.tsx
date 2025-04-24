@@ -20,6 +20,7 @@ interface Agency {
 }
 
 const ITEMS_PER_PAGE = 12;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 function formatNumber(num: number): string {
   if (num >= 1_000_000) {
@@ -45,7 +46,7 @@ export default function AgencyTable() {
     const fetchAgencies = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("http://localhost:8000/api/agencies");
+        const response = await fetch(`${API_URL}/agencies`);
         if (!response.ok) throw new Error("Failed to fetch agencies");
         const data = await response.json();
         setAgencies(data);

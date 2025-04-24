@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: ecfr-analyzer-backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecfr-db
+          property: connectionString
+
+  - type: web
+    name: ecfr-analyzer-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://ecfr-analyzer-backend.onrender.com/api
+
+databases:
+  - name: ecfr-db
+    databaseName: ecfr
+    user: ecfr_user
+    plan: free 

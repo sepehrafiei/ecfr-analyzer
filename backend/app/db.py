@@ -6,6 +6,7 @@ Manages agency metrics storage and retrieval.
 Author: Sepehr Rafiei
 """
 
+import os
 from sqlalchemy import Column, Integer, String, JSON, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
@@ -23,5 +24,12 @@ class AgencyMetrics(Base):
     word_count = Column(Integer)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
-engine = create_engine("sqlite:///data/ecfr.db")
+# Use environment variable for database URL, fallback to SQLite for local development
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///data/ecfr.db")
+
+# Handle Render's PostgreSQL URL format
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
