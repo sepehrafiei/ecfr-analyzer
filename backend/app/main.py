@@ -61,7 +61,13 @@ async def startup_event():
         
         if agency_count == 0:
             logger.info("No data found. Running initial data load...")
-            await refresh_data_task()
+            try:
+                # Run initial data load in a separate task
+                await refresh_data_task()
+            except Exception as e:
+                logger.error(f"Error during initial data load: {str(e)}")
+                # Continue startup even if initial load fails
+                pass
         
         # Schedule daily updates at 2 AM UTC
         scheduler.add_job(
@@ -76,7 +82,8 @@ async def startup_event():
         
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
-        raise
+        # Don't raise the exception, allow the app to start
+        pass
 
 @app.on_event("shutdown")
 async def shutdown_event():

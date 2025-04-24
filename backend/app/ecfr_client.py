@@ -93,7 +93,11 @@ def ensure_titles_downloaded():
 
         for t in meta["titles"]:
             title_num = t["number"]
-            date = t["latest_amended_on"]
+            date = t.get("latest_amended_on")
+            if date is None:
+                logger.warning(f"No date found for title {title_num}, skipping...")
+                continue
+                
             path = DATA_DIR / f"titles/title-{title_num}.xml"
             
             # Check if we need to download or update the file
@@ -101,7 +105,9 @@ def ensure_titles_downloaded():
                 datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)
             ) > timedelta(hours=24):
                 logger.info(f"Downloading title {title_num}")
-                url = f'https://www.ecfr.gov/api/versioner/v1/full/{date}/title-{title_num}.xml'
+                # Format date as YYYY-MM-DD
+                formatted_date = datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d")
+                url = f'https://www.ecfr.gov/api/versioner/v1/full/{formatted_date}/title-{title_num}.xml'
                 res = fetch_with_retry(url, headers=HEADERS)
                 
                 path.parent.mkdir(parents=True, exist_ok=True)

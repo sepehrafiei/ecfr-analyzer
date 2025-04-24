@@ -1,53 +1,38 @@
-version: "3.9"
-
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:15
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ecfr}
-      POSTGRES_USER: ${POSTGRES_USER:-user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecfr
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-ecfr}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   backend:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
+    build: ./backend
     volumes:
       - ./backend:/app
+      - ./backend/data:/app/data
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-    env_file:
-      - .env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-ecfr}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ecfr
+    depends_on:
+      - db
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     ports:
-      - "3000:80"
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend
-    environment:
-      - VITE_API_URL=http://localhost:8000/api
 
 volumes:
-  db-data:
+  postgres_data:
