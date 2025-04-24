@@ -19,6 +19,8 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ecfr
+      - DEV_MODE=false
+      - FORCE_REFRESH=true
     depends_on:
       - db
 
@@ -28,7 +30,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "3000:3000"
+      - "3000:80"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:

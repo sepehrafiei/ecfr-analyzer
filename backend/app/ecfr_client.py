@@ -13,6 +13,8 @@ import requests
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 from datetime import datetime, timedelta
+import concurrent.futures
+from tqdm import tqdm
 
 from .config import HEADERS
 
@@ -83,6 +85,33 @@ def get_agency_scope_map():
         logger.error(f"Error getting agency scope map: {str(e)}")
         raise
 
+def download_title(title_num, date):
+    """Download a single title file."""
+    try:
+        path = DATA_DIR / f"titles/title-{title_num}.xml"
+        
+        # Check if we need to download or update the file
+        if not path.exists() or (
+            datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)
+        ) > timedelta(hours=24):
+            logger.info(f"Downloading title {title_num}")
+            # Format date as YYYY-MM-DD
+            formatted_date = datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d")
+            url = f'https://www.ecfr.gov/api/versioner/v1/full/{formatted_date}/title-{title_num}.xml'
+            res = fetch_with_retry(url, headers=HEADERS)
+            
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, 'wb') as f:
+                f.write(res.content)
+            logger.info(f"Successfully downloaded title {title_num}")
+            return True
+        else:
+            logger.debug(f"Title {title_num} is up to date")
+            return False
+    except Exception as e:
+        logger.error(f"Error downloading title {title_num}: {str(e)}")
+        return False
+
 def ensure_titles_downloaded():
     """Ensure all titles are downloaded with proper error handling."""
     try:
@@ -91,31 +120,29 @@ def ensure_titles_downloaded():
             "titles_meta.json"
         )
 
+        # Prepare download tasks
+        download_tasks = []
         for t in meta["titles"]:
             title_num = t["number"]
             date = t.get("latest_amended_on")
             if date is None:
                 logger.warning(f"No date found for title {title_num}, skipping...")
                 continue
-                
-            path = DATA_DIR / f"titles/title-{title_num}.xml"
+            download_tasks.append((title_num, date))
+
+        # Download titles in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(download_title, title_num, date) 
+                      for title_num, date in download_tasks]
             
-            # Check if we need to download or update the file
-            if not path.exists() or (
-                datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)
-            ) > timedelta(hours=24):
-                logger.info(f"Downloading title {title_num}")
-                # Format date as YYYY-MM-DD
-                formatted_date = datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d")
-                url = f'https://www.ecfr.gov/api/versioner/v1/full/{formatted_date}/title-{title_num}.xml'
-                res = fetch_with_retry(url, headers=HEADERS)
-                
-                path.parent.mkdir(parents=True, exist_ok=True)
-                with open(path, 'wb') as f:
-                    f.write(res.content)
-                logger.info(f"Successfully downloaded title {title_num}")
-            else:
-                logger.debug(f"Title {title_num} is up to date")
+            # Track progress
+            for future in tqdm(concurrent.futures.as_completed(futures), 
+                             total=len(futures),
+                             desc="Downloading titles"):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"Error in download task: {str(e)}")
                 
     except Exception as e:
         logger.error(f"Error ensuring titles are downloaded: {str(e)}")

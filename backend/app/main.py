@@ -15,6 +15,7 @@ from apscheduler.triggers.cron import CronTrigger
 import logging
 from datetime import datetime
 from pathlib import Path
+import os
 
 from .db import SessionLocal, Base, engine, AgencyMetrics
 from .analyzer import get_top_agencies_by_word_count, get_agency_summary
@@ -54,16 +55,19 @@ async def startup_event():
         # Create database tables
         Base.metadata.create_all(engine)
         
-        # Check if we need to load initial data
+        # Check if we need to load initial data or force refresh
         db = SessionLocal()
         agency_count = db.query(AgencyMetrics).count()
         db.close()
         
-        if agency_count == 0:
-            logger.info("No data found. Running initial data load...")
+        force_refresh = os.getenv("FORCE_REFRESH", "false").lower() == "true"
+        
+        if agency_count == 0 or force_refresh:
+            logger.info("Starting data load...")
             try:
                 # Run initial data load in a separate task
                 await refresh_data_task()
+                logger.info("Initial data load completed successfully")
             except Exception as e:
                 logger.error(f"Error during initial data load: {str(e)}")
                 # Continue startup even if initial load fails

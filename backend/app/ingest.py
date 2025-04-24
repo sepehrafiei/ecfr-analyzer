@@ -13,18 +13,18 @@ import logging
 from datetime import datetime, timedelta
 import time
 from pathlib import Path
+import os
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
 # Cache for XML parsing results
 xml_cache = {}
 
-def run_ingestion():
-    """Run data ingestion with proper error handling and timeouts."""
-    session = None
+def download_all_data():
+    """Download all required data before processing."""
+    logger.info("Starting data download phase...")
     try:
-        logger.info("Starting data ingestion process...")
-        
         # First ensure we have the latest titles
         logger.info("Ensuring titles are downloaded...")
         ensure_titles_downloaded()
@@ -35,10 +35,20 @@ def run_ingestion():
         agency_map = get_agency_scope_map()
         logger.info(f"Found {len(agency_map)} agencies to process")
         
+        return agency_map
+    except Exception as e:
+        logger.error(f"Error during data download: {str(e)}")
+        raise
+
+def process_agency_data(agency_map):
+    """Process all agency data after download is complete."""
+    session = None
+    try:
+        logger.info("Starting data processing phase...")
         session = SessionLocal()
         
-        # Process all agencies
-        for name, refs in agency_map.items():
+        # Process all agencies with progress bar
+        for name, refs in tqdm(agency_map.items(), desc="Processing agencies"):
             try:
                 logger.info(f"Processing agency: {name}")
                 section_total = 0
@@ -113,16 +123,31 @@ def run_ingestion():
                 session.rollback()
                 continue
             
-        logger.info("Data ingestion process completed successfully")
+        logger.info("Data processing phase completed successfully")
             
     except Exception as e:
-        logger.error(f"Error in run_ingestion: {str(e)}")
+        logger.error(f"Error in process_agency_data: {str(e)}")
         if session:
             session.rollback()
     finally:
         if session:
             session.close()
             logger.info("Database session closed")
+
+def run_ingestion():
+    """Run data ingestion with proper error handling and timeouts."""
+    try:
+        # First download all data
+        logger.info("Starting data ingestion process...")
+        agency_map = download_all_data()
+        
+        # Then process all data
+        process_agency_data(agency_map)
+        
+        logger.info("Data ingestion process completed successfully")
+    except Exception as e:
+        logger.error(f"Error in run_ingestion: {str(e)}")
+        raise
 
 def refresh_all_data():
     """Refresh all data with proper error handling."""

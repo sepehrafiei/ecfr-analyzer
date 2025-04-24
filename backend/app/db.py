@@ -7,11 +7,13 @@ Author: Sepehr Rafiei
 """
 
 import os
-from sqlalchemy import Column, Integer, String, JSON, DateTime
+import time
+from sqlalchemy import Column, Integer, String, JSON, DateTime, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
+from sqlalchemy.exc import OperationalError
 
 Base = declarative_base()
 
@@ -31,5 +33,20 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///data/ecfr.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(DATABASE_URL)
+def get_engine(max_retries=5, retry_delay=2):
+    """Create database engine with retry logic."""
+    for attempt in range(max_retries):
+        try:
+            engine = create_engine(DATABASE_URL)
+            # Test the connection
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return engine
+        except OperationalError as e:
+            if attempt == max_retries - 1:
+                raise
+            print(f"Database connection attempt {attempt + 1} failed. Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+
+engine = get_engine()
 SessionLocal = sessionmaker(bind=engine)
